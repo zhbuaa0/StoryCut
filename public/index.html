@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="StoryCut turns transcripts into explainable, reviewable rough-cut decisions.">
+  <title>StoryCut — Explainable rough cuts</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#">STORY<span>CUT</span></a>
+    <div class="status"><i></i><span id="modeLabel">Checking mode…</span></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">OPENAI BUILD WEEK · CONCEPT PROTOTYPE</p>
+      <h1>AI proposes.<br><em>The creator decides.</em></h1>
+      <p class="lede">Turn a transcript into a transparent first cut. Every KEEP, CUT, MOVE, and B-ROLL suggestion comes with a reason—and stays under your control.</p>
+      <div class="privacy-note"><span>◎</span> Transcript text is processed in memory and is never saved by this prototype.</div>
+    </section>
+
+    <section class="workspace">
+      <div class="input-panel panel">
+        <div class="panel-head">
+          <div><p class="step">01 / SOURCE</p><h2>Add a transcript</h2></div>
+          <button id="demoButton" class="quiet-button">Load safe demo</button>
+        </div>
+        <textarea id="transcript" maxlength="30000" spellcheck="true" placeholder="Paste plain text, SRT, or VTT here…"></textarea>
+        <div class="input-footer">
+          <span id="charCount">0 / 30,000</span>
+          <div class="mode-control">
+            <label for="analysisMode">Analyzer</label>
+            <select id="analysisMode">
+              <option value="local">Local demo</option>
+              <option value="ai">GPT-5.6</option>
+            </select>
+            <button id="analyzeButton" class="primary-button">Analyze story →</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="resultsPanel" class="results-panel panel hidden">
+        <div class="panel-head results-head">
+          <div><p class="step">02 / REVIEW</p><h2>Editorial decisions</h2></div>
+          <button id="exportButton" class="quiet-button">Export JSON ↓</button>
+        </div>
+        <p id="summary" class="summary"></p>
+        <div id="stats" class="stats"></div>
+        <div class="filter-row" role="group" aria-label="Filter decisions">
+          <button class="filter active" data-filter="ALL">ALL</button>
+          <button class="filter keep" data-filter="KEEP">KEEP</button>
+          <button class="filter cut" data-filter="CUT">CUT</button>
+          <button class="filter move" data-filter="MOVE">MOVE</button>
+          <button class="filter broll" data-filter="B-ROLL">B-ROLL</button>
+        </div>
+        <div id="decisionList" class="decision-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

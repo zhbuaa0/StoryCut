@@ -1,0 +1,15 @@
+{
+  "name": "storycut",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test",
+    "privacy-check": "node scripts/privacy-check.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

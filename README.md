@@ -1,5 +1,7 @@
 # StoryCut
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **AI proposes. The creator decides.**
 
 StoryCut is an explainable, human-in-the-loop rough-cut prototype for talking-head and vlog videos. It converts a transcript into reviewable `KEEP`, `CUT`, `MOVE`, and `B-ROLL` proposals, gives a reason for every decision, and exports an editable timeline JSON.

@@ -2,7 +2,10 @@
 .env
 .env.*
 !.env.example
+.work/
 node_modules/
+__pycache__/
+*.pyc
 coverage/
 outputs/
 uploads/
@@ -19,3 +22,10 @@ private/
 id_rsa*
 id_ed25519*
 npm-debug.log*
+
+# v0.2: tests/fixtures/* is closed by default. Only the synthetic
+# short.mp3 + its expected.json are whitelisted; everything else stays
+# blocked. Adding a new fixture requires a security review per HANDOFF.
+tests/fixtures/*
+!tests/fixtures/short.mp3
+!tests/fixtures/short.expected.json

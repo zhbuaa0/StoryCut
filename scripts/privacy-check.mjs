@@ -8,6 +8,14 @@ const tracked = execFileSync("git", ["ls-files", "--cached", "--others", "--excl
   encoding: "utf8"
 }).trim().split("\n").filter(Boolean);
 
+// v0.2: a narrow path-based allow-list for the synthetic test fixture.
+// Anything else with a binary-media extension continues to be blocked, even
+// if it lives outside tests/fixtures/. Widening this list requires a security
+// review per HANDOFF.
+const allowedFixturePaths = new Set([
+  "tests/fixtures/short.mp3",
+  "tests/fixtures/short.expected.json"
+]);
 const forbiddenExtensions = new Set([".mp4", ".mov", ".mkv", ".wav", ".aiff", ".pem", ".key"]);
 const forbiddenNames = new Set([".env", "id_rsa", "id_ed25519"]);
 const patterns = [
@@ -21,7 +29,10 @@ const findings = [];
 for (const relative of tracked) {
   const base = path.basename(relative);
   const ext = path.extname(relative).toLowerCase();
-  if (forbiddenNames.has(base) || forbiddenExtensions.has(ext)) findings.push(`${relative}: forbidden public file type`);
+  if (forbiddenNames.has(base) ||
+      (forbiddenExtensions.has(ext) && !allowedFixturePaths.has(relative))) {
+    findings.push(`${relative}: forbidden public file type`);
+  }
   const full = path.join(root, relative);
   const stat = fs.statSync(full);
   if (!stat.isFile() || stat.size > 2_000_000) continue;

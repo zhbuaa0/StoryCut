@@ -22,9 +22,31 @@
     </section>
 
     <section class="workspace">
+      <div class="media-panel panel">
+        <div class="panel-head">
+          <div>
+            <p class="step">01 / MEDIA <span class="local-badge">local</span></p>
+            <h2>Drop a local media file</h2>
+          </div>
+          <span class="hint">Runs on this machine · nothing leaves the device</span>
+        </div>
+        <label id="dropzone" class="dropzone" for="mediaFile">
+          <input type="file" id="mediaFile" accept="video/*,audio/*,.mp4,.mov,.m4a,.wav,.mp3" hidden>
+          <div class="dropzone-copy">
+            <strong>Drop</strong> mp4 / mov / m4a / wav / mp3 here, or
+            <button type="button" id="pickFile" class="link">choose a file</button>
+          </div>
+          <p class="dropzone-meta" id="dropzoneMeta">Whisper-small runs on Apple Silicon. First run downloads the model (~460 MB) and caches it.</p>
+        </label>
+        <div id="mediaProgress" class="media-progress hidden">
+          <div class="progress-track"><span id="progressBar"></span></div>
+          <p id="progressStage" class="progress-stage">Idle.</p>
+        </div>
+      </div>
+
       <div class="input-panel panel">
         <div class="panel-head">
-          <div><p class="step">01 / SOURCE</p><h2>Add a transcript</h2></div>
+          <div><p class="step">02 / PASTE</p><h2>Or paste a transcript</h2></div>
           <button id="demoButton" class="quiet-button">Load safe demo</button>
         </div>
         <textarea id="transcript" maxlength="30000" spellcheck="true" placeholder="Paste plain text, SRT, or VTT here…"></textarea>

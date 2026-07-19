@@ -1,0 +1,21 @@
+{
+  "model_shape": "transcript",
+  "language_in": [
+    "en"
+  ],
+  "duration_in": [
+    5.0,
+    9.0
+  ],
+  "words_in": [
+    "Welcome",
+    "to",
+    "StoryCut"
+  ],
+  "segments_min": 1,
+  "words_min": 8,
+  "sample_text_substr": [
+    "Welcome",
+    "StoryCut"
+  ]
+}

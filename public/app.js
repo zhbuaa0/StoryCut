@@ -119,6 +119,172 @@ transcript.addEventListener("input", () => {
 
 analyzeButton.addEventListener("click", analyze);
 
+// --- Media upload + transcription (v0.2) --------------------------------
+
+const dropzone = document.querySelector("#dropzone");
+const mediaFileInput = document.querySelector("#mediaFile");
+const pickFileButton = document.querySelector("#pickFile");
+const progressEl = document.querySelector("#mediaProgress");
+const progressBar = document.querySelector("#progressBar");
+const progressStage = document.querySelector("#progressStage");
+
+function setProgress(stage, percent) {
+  progressEl.classList.remove("hidden");
+  progressStage.textContent = stage;
+  if (typeof percent === "number" && Number.isFinite(percent)) {
+    progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  } else if (stage === "done") {
+    progressBar.style.width = "100%";
+  }
+}
+
+function hideProgress() {
+  progressEl.classList.add("hidden");
+  progressBar.style.width = "0%";
+}
+
+async function uploadFile(file) {
+  const headers = { "X-Filename": file.name };
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    headers,
+    body: file  // raw bytes; server enforces 500 MB cap
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "Upload failed.");
+  return payload;
+}
+
+async function runTranscriptionStream(fileId, language) {
+  const response = await fetch("/api/transcribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileId, language })
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `Transcription request failed (${response.status}).`);
+  }
+  if (!response.body) throw new Error("Transcription stream unavailable.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  return await new Promise((resolve, reject) => {
+    (async () => {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let sep;
+          while ((sep = buffer.indexOf("\n\n")) !== -1) {
+            const block = buffer.slice(0, sep);
+            buffer = buffer.slice(sep + 2);
+            let eventName = "message";
+            let dataLine = "";
+            for (const line of block.split("\n")) {
+              if (line.startsWith("data:")) dataLine += line.slice(5).trimStart();
+              else if (line.startsWith("event:")) eventName = line.slice(6).trim();
+            }
+            if (!dataLine) continue;
+            let parsed;
+            try { parsed = JSON.parse(dataLine); } catch { continue; }
+            if (eventName === "error") return reject(new Error(parsed.error || "Transcription failed."));
+            if (eventName === "end") return resolve(null);
+            if (parsed && parsed.type === "done") return resolve(parsed.transcript);
+          }
+        }
+      } catch (error) {
+        reject(error);
+      }
+    })();
+  });
+}
+
+async function analyzeTranscriptPayload(transcript, mode) {
+  const response = await fetch("/api/analyze-transcript", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, mode })
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "Analysis failed.");
+  return payload;
+}
+
+async function handleMediaFile(file) {
+  if (!file) return;
+  if (!/\.(mp4|mov|m4a|wav|mp3)$/i.test(file.name)) {
+    toast("Unsupported file type. Use mp4, mov, m4a, wav, or mp3.");
+    return;
+  }
+  try {
+    setProgress("Uploading…");
+    const upload = await uploadFile(file);
+    document.querySelector("#dropzoneMeta").textContent = `${file.name} · ${(upload.sizeBytes / 1024 / 1024).toFixed(1)} MB · ${upload.duration.toFixed(1)} s · ${upload.audio.codec || "audio"}`;
+    setProgress("Transcribing… (loading model on first run)");
+    let transcript;
+    try {
+      transcript = await runTranscriptionStream(upload.fileId, "auto");
+    } catch (error) {
+      setProgress(error.message, 0);
+      toast(error.message);
+      return;
+    }
+    if (!transcript) {
+      toast("Transcription finished but produced no transcript.");
+      return;
+    }
+    setProgress(`Transcribed ${transcript.segments.length} segments · analyzing…`);
+    const result = await analyzeTranscriptPayload(transcript, modeSelect.value);
+    state.decisions = result.decisions;
+    const segCount = transcript.segments.length;
+    document.querySelector("#summary").textContent =
+      `Transcribed ${segCount} segment${segCount === 1 ? "" : "s"} from ${file.name} · ${result.summary} · ${result.mode === "ai" ? "GPT-5.6 analysis" : "local demo analysis"}`;
+    updateStats();
+    renderDecisions();
+    resultsPanel.classList.remove("hidden");
+    resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    setProgress("Done.", 100);
+    toast("Transcription complete.");
+  } catch (error) {
+    setProgress(error.message);
+    toast(error.message);
+  }
+}
+
+if (mediaFileInput) {
+  mediaFileInput.addEventListener("change", (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (file) handleMediaFile(file);
+    mediaFileInput.value = "";
+  });
+}
+
+if (pickFileButton) {
+  pickFileButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    mediaFileInput.click();
+  });
+}
+
+if (dropzone) {
+  ["dragenter", "dragover"].forEach((evt) => dropzone.addEventListener(evt, (event) => {
+    event.preventDefault();
+    dropzone.classList.add("dragging");
+  }));
+  ["dragleave", "drop"].forEach((evt) => dropzone.addEventListener(evt, (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("dragging");
+  }));
+  dropzone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    if (file) handleMediaFile(file);
+  });
+}
+
 document.querySelector(".filter-row").addEventListener("click", (event) => {
   const button = event.target.closest("[data-filter]");
   if (!button) return;

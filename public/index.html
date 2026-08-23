@@ -1,86 +1,529 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="StoryCut turns transcripts into explainable, reviewable rough-cut decisions.">
-  <title>StoryCut — Explainable rough cuts</title>
+  <meta name="description" content="StoryCut 是 Codex 视频剪辑工作流的本地审片与反馈界面。">
+  <title>StoryCut — Codex 本地审片工作台</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#">STORY<span>CUT</span></a>
-    <div class="status"><i></i><span id="modeLabel">Checking mode…</span></div>
-  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="StoryCut 首页">
+        <span class="brand-mark">S</span>
+        <span>StoryCut<small>REVIEW WORKSPACE</small></span>
+      </a>
 
-  <main>
-    <section class="hero">
-      <p class="eyebrow">OPENAI BUILD WEEK · CONCEPT PROTOTYPE</p>
-      <h1>AI proposes.<br><em>The creator decides.</em></h1>
-      <p class="lede">Turn a transcript into a transparent first cut. Every KEEP, CUT, MOVE, and B-ROLL suggestion comes with a reason—and stays under your control.</p>
-      <div class="privacy-note"><span>◎</span> Transcript text is processed in memory and is never saved by this prototype.</div>
-    </section>
+      <div class="project-mini">
+        <span class="project-dot"></span>
+        <div>
+          <small>当前项目</small>
+          <strong id="sidebarProjectName">尚未打开</strong>
+        </div>
+      </div>
 
-    <section class="workspace">
-      <div class="media-panel panel">
-        <div class="panel-head">
+      <nav class="main-nav" aria-label="主要页面">
+        <button class="nav-item active" data-page="overview">
+          <span>⌂</span><span>项目总览</span>
+        </button>
+        <button class="nav-item" data-page="review">
+          <span>▶</span><span>视频审片</span><b id="feedbackBadge" class="nav-badge hidden">0</b>
+        </button>
+        <button class="nav-item" data-page="edit">
+          <span>✂</span><span>剪辑工作台</span>
+        </button>
+        <button class="nav-item" data-page="files">
+          <span>▤</span><span>项目文件</span>
+        </button>
+        <button class="nav-item" data-page="analyze">
+          <span>✦</span><span>AI 分析</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-note">
+        <span>● 本地模式</span>
+        <p>素材、批注和项目文件都留在这台设备上。</p>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <header class="app-header">
+        <div>
+          <p id="pageEyebrow">CODEX REVIEW WORKSPACE</p>
+          <h1 id="pageTitle">项目总览</h1>
+        </div>
+        <div class="header-actions">
+          <div class="runtime-status"><i></i><span id="modeLabel">检查本地服务…</span></div>
+          <div class="edit-header-status" aria-label="当前剪辑工作台状态">
+            <span><i></i> 当前版本 <b id="editHeaderVersion">—</b></span>
+            <button id="editHeaderPromptButton" class="button secondary" type="button">生成总 Prompt</button>
+          </div>
+          <button id="refreshProjectButton" class="button secondary hidden">刷新项目</button>
+          <button id="headerCacheButton" class="button secondary" type="button">缓存</button>
+          <button id="openProjectButton" class="button secondary">打开项目</button>
+        </div>
+      </header>
+
+      <section id="page-overview" class="page active">
+        <div id="emptyState" class="empty-state">
+          <div class="empty-copy">
+            <p class="kicker">从已有工程继续，而不是从空白时间线开始</p>
+            <h2>让 Codex 剪辑，<em>你只负责判断。</em></h2>
+            <p>打开一个本地视频项目。StoryCut 会整理最新审片版、故事方案、字幕、EDL 和项目记忆，帮助你把观看感受变成精确反馈。</p>
+            <button id="emptyOpenButton" class="button primary">打开本地项目 →</button>
+          </div>
+          <div class="workflow-preview" aria-label="工作流程">
+            <article><b>01</b><span>Codex 生成文件</span><small>故事、EDL、字幕、预览</small></article>
+            <article><b>02</b><span>你审片并批注</span><small>时间码、意图、必须保留</small></article>
+            <article><b>03</b><span>回到对话执行</span><small>读取反馈，生成新版本</small></article>
+          </div>
+        </div>
+
+        <section id="recentProjectsPanel" class="card recent-projects-panel hidden">
+          <div class="section-head">
+            <div><p class="section-label">RECENT LOCAL PROJECTS</p><h3>继续上次的项目</h3></div>
+            <span class="local-chip">仅保存在本机</span>
+          </div>
+          <div id="recentProjectsList" class="recent-project-list"></div>
+        </section>
+
+        <div id="projectDashboard" class="dashboard hidden">
+          <section class="project-hero">
+            <div>
+              <p class="kicker">ACTIVE LOCAL PROJECT</p>
+              <h2 id="dashboardProjectName">—</h2>
+              <p id="dashboardProjectPath" class="path-label">—</p>
+            </div>
+            <div class="phase-pill"><span></span><div><small>当前阶段</small><strong id="currentPhase">等待审片</strong></div></div>
+          </section>
+
+          <div class="metric-grid">
+            <article class="metric"><span>项目文件</span><strong id="artifactCount">0</strong><small>已自动分类</small></article>
+            <article class="metric"><span>待处理反馈</span><strong id="pendingCount">0</strong><small>本轮审片</small></article>
+            <article class="metric"><span>最新版本</span><strong id="latestVersion">—</strong><small>按修改时间识别</small></article>
+            <article class="metric"><span>最后更新</span><strong id="lastUpdated">—</strong><small>本地文件时间</small></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="card latest-card">
+              <div class="section-head"><div><p class="section-label">LATEST PREVIEW</p><h3>最新审片版</h3></div><button class="text-button" data-page-jump="review">开始审片 →</button></div>
+              <div id="latestPreviewSummary" class="preview-summary">
+                <div class="preview-icon">▶</div>
+                <div><strong>未找到审片视频</strong><p>把低码率预览放进 edit/ 目录后刷新项目。</p></div>
+              </div>
+            </section>
+
+            <section class="card memory-card">
+              <div class="section-head"><div><p class="section-label">PROJECT MEMORY</p><h3>当前项目记忆</h3></div><button id="openMemoryButton" class="text-button">查看文件 →</button></div>
+              <pre id="memoryExcerpt">项目中尚未找到 project.md。</pre>
+            </section>
+          </div>
+
+          <section class="card workflow-card">
+            <div class="section-head"><div><p class="section-label">LOW-REWORK WORKFLOW</p><h3>从故事到交付</h3></div><span class="local-chip">全部在本地</span></div>
+            <div class="phase-track">
+              <article><span>01</span><b>素材理解</b><small>清单、转写、视觉索引</small></article>
+              <article><span>02</span><b>故事锁定</b><small>开场、章节、时长</small></article>
+              <article><span>03</span><b>纸剪与 EDL</b><small>音频骨架、B-roll</small></article>
+              <article class="current"><span>04</span><b>粗剪审片</b><small>反馈、局部验证</small></article>
+              <article><span>05</span><b>包装交付</b><small>字幕、图形、声音、QA</small></article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="page-review" class="page">
+        <div id="reviewNeedsProject" class="inline-empty">请先打开一个包含审片视频的本地项目。</div>
+        <div id="reviewWorkspace" class="review-layout hidden">
+          <section class="review-main">
+            <div class="review-toolbar">
+              <div>
+                <label for="previewSelect">审片版本</label>
+                <select id="previewSelect"></select>
+              </div>
+              <div class="review-toolbar-meta">
+                <button id="reviewPlaybackCacheStatus" class="review-cache-status" type="button" title="本机播放代理状态">准备播放代理</button>
+                <label for="playbackRateSelect">倍速
+                  <select id="playbackRateSelect" aria-label="播放倍速">
+                    <option value="0.5">0.5×</option>
+                    <option value="0.75">0.75×</option>
+                    <option value="1" selected>1.0×</option>
+                    <option value="1.25">1.25×</option>
+                    <option value="1.5">1.5×</option>
+                    <option value="2">2.0×</option>
+                  </select>
+                </label>
+                <span id="reviewTimeDisplay">00:00:00.000</span>
+              </div>
+            </div>
+            <div class="video-stage">
+              <video id="reviewVideo" controls preload="metadata"></video>
+              <div id="currentSubtitleOverlay" class="subtitle-overlay hidden"></div>
+              <div id="videoPlaceholder" class="video-placeholder"><span>▶</span><p>项目中没有可播放的审片文件</p></div>
+            </div>
+            <section class="review-index">
+              <div id="reviewIndexTabs" class="review-index-tabs" role="tablist" aria-label="审片索引">
+                <button class="active" role="tab" aria-selected="true" data-review-index-tab="subtitles">
+                  字幕 <span id="subtitleCount">0</span>
+                </button>
+                <button role="tab" aria-selected="false" data-review-index-tab="markers">
+                  剪辑节点 <span id="markerCount">0</span>
+                </button>
+              </div>
+              <div class="review-index-tools">
+                <label class="review-index-search">
+                  <span>⌕</span>
+                  <input id="reviewIndexSearch" type="search" placeholder="搜索字幕" autocomplete="off">
+                </label>
+                <small>点击任意一行跳转</small>
+              </div>
+              <div id="subtitleIndexPanel" class="review-index-panel" role="tabpanel">
+                <div id="subtitleList" class="review-list">
+                  <div class="review-list-empty">打开项目后显示全部字幕。</div>
+                </div>
+              </div>
+              <div id="markerIndexPanel" class="review-index-panel hidden" role="tabpanel">
+                <div id="markerFilters" class="marker-filters">
+                  <button class="active" data-marker-filter="all">全部</button>
+                  <button data-marker-filter="cut"><i></i>剪辑点</button>
+                  <button data-marker-filter="sfx"><i></i>音效</button>
+                  <button data-marker-filter="flower"><i></i>花字</button>
+                  <button data-marker-filter="chapter"><i></i>章节卡</button>
+                  <button data-marker-filter="bgm"><i></i>BGM</button>
+                  <button data-marker-filter="feedback"><i></i>反馈</button>
+                </div>
+                <div id="timelineTrack" class="marker-track" aria-label="全片节点概览"></div>
+                <div id="markerList" class="review-list marker-list">
+                  <div class="review-list-empty">当前没有剪辑节点。</div>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <aside class="feedback-panel">
+            <section class="subtitle-live subtitle-review-panel">
+              <div class="subtitle-live-head">
+                <div>
+                  <p class="section-label">SUBTITLE CHECK</p>
+                  <h3>当前字幕校对</h3>
+                  <strong id="subtitleCueTime">当前时间没有字幕</strong>
+                </div>
+                <span id="subtitleSource">未找到字幕文件</span>
+              </div>
+              <div class="subtitle-edit-row">
+                <textarea id="currentSubtitleText" placeholder="播放到有字幕的位置，即可实时查看和校正。" disabled></textarea>
+                <button id="saveSubtitleButton" class="button secondary" disabled>保存校正</button>
+              </div>
+              <p id="subtitleCorrectionStatus" class="subtitle-status">校正会保存为独立记录，不覆盖主字幕。</p>
+            </section>
+            <div class="feedback-heading">
+              <div><p class="section-label">REVIEW NOTE</p><h2>说出你的感觉</h2></div>
+              <span id="queueCount">0 条</span>
+            </div>
+
+            <div class="range-row">
+              <label>开始<input id="feedbackStart" type="text" value="00:00:00.000" inputmode="numeric"></label>
+              <button id="setStartButton" class="icon-button" title="使用当前时间">← 当前</button>
+              <label>结束<input id="feedbackEnd" type="text" value="00:00:00.000" inputmode="numeric"></label>
+              <button id="setEndButton" class="icon-button" title="使用当前时间">当前 →</button>
+            </div>
+
+            <div class="quick-feedback" id="quickFeedback">
+              <button data-feedback="这里太散，需要更明确的推进。">太散</button>
+              <button data-feedback="这里节奏太慢，请收紧重复表达。">太慢</button>
+              <button data-feedback="这句话或动作没有完整结束。">没说完</button>
+              <button data-feedback="保留这里的真实反应和停顿。">留反应</button>
+              <button data-feedback="这里的 B-roll 与说话内容不匹配。">B-roll</button>
+              <button data-feedback="这里的字幕内容或时间需要校正。">字幕</button>
+              <button data-feedback="这里的音乐太满，请给同期声留空间。">音乐太满</button>
+              <button data-feedback="这里不需要进一步煽情。">别煽情</button>
+            </div>
+
+            <label class="field-label" for="feedbackNote">我希望它变成什么感觉</label>
+            <textarea id="feedbackNote" maxlength="4000" placeholder="例如：保留笑声和人物反应，但更快进入下一个问题……"></textarea>
+
+            <label class="field-label" for="mustKeep">必须保留</label>
+            <input id="mustKeep" class="text-input" maxlength="2000" placeholder="例如：00:51 的笑声、人物脸部、这句原话">
+
+            <div class="feedback-options">
+              <label>类别<select id="feedbackCategory"><option value="story">故事</option><option value="pace">节奏</option><option value="picture">画面</option><option value="subtitle">字幕</option><option value="sound">声音</option><option value="graphics">花字/图形</option><option value="privacy">隐私</option></select></label>
+              <label>优先级<select id="feedbackPriority"><option value="normal">普通</option><option value="high">高</option><option value="low">低</option></select></label>
+              <label class="check-label"><input id="feedbackLock" type="checkbox"><span>修改后锁定</span></label>
+            </div>
+
+            <button id="addFeedbackButton" class="button primary wide">加入本轮反馈</button>
+
+            <div id="feedbackQueue" class="feedback-queue">
+              <div class="queue-empty">播放视频并添加第一条意见。</div>
+            </div>
+
+            <button id="saveReviewButton" class="button secondary wide" disabled>生成文件与 Codex Prompt</button>
+          </aside>
+        </div>
+
+        <section id="promptResult" class="prompt-result hidden">
+          <div class="section-head"><div><p class="section-label">READY FOR CODEX</p><h3>反馈文件已生成</h3></div><button id="copyPromptButton" class="button secondary">复制 Prompt</button></div>
+          <p id="savedFiles"></p>
+          <pre id="generatedPrompt"></pre>
+        </section>
+      </section>
+
+      <section id="page-edit" class="page">
+        <div id="editNeedsProject" class="inline-empty edit-project-empty">
+          <span class="edit-project-empty-icon" aria-hidden="true">✂</span>
           <div>
-            <p class="step">01 / MEDIA <span class="local-badge">local</span></p>
-            <h2>Drop a local media file</h2>
+            <strong>打开一个本地剪辑项目</strong>
+            <p>请选择包含 EDL 或审片版本的项目目录。</p>
           </div>
-          <span class="hint">Runs on this machine · nothing leaves the device</span>
+          <button id="editOpenProjectButton" class="button primary" type="button">打开项目</button>
         </div>
-        <label id="dropzone" class="dropzone" for="mediaFile">
-          <input type="file" id="mediaFile" accept="video/*,audio/*,.mp4,.mov,.m4a,.wav,.mp3" hidden>
-          <div class="dropzone-copy">
-            <strong>Drop</strong> mp4 / mov / m4a / wav / mp3 here, or
-            <button type="button" id="pickFile" class="link">choose a file</button>
+        <div id="editWorkspace" class="edit-workspace hidden">
+          <div class="edit-workspace-toolbar">
+            <div>
+              <p class="section-label">CONVERSATIONAL EDITING</p>
+              <h2>对话剪辑工作台</h2>
+              <span id="editWorkspaceMeta">选择素材或镜头，然后用一句话说明想怎么剪。</span>
+            </div>
+            <div class="edit-toolbar-actions">
+              <span id="editHistoryLabel" class="local-chip">意见模式 · 不写入</span>
+              <span id="editIndexStatus" class="local-chip">准备本地索引</span>
+              <button id="editUndoButton" class="button secondary" disabled hidden>撤销上一步</button>
+              <button id="editRefreshButton" class="button secondary">重新读取</button>
+            </div>
           </div>
-          <p class="dropzone-meta" id="dropzoneMeta">Whisper-small runs on Apple Silicon. First run downloads the model (~460 MB) and caches it.</p>
-        </label>
-        <div id="mediaProgress" class="media-progress hidden">
-          <div class="progress-track"><span id="progressBar"></span></div>
-          <p id="progressStage" class="progress-stage">Idle.</p>
-        </div>
-      </div>
 
-      <div class="input-panel panel">
-        <div class="panel-head">
-          <div><p class="step">02 / PASTE</p><h2>Or paste a transcript</h2></div>
-          <button id="demoButton" class="quiet-button">Load safe demo</button>
-        </div>
-        <textarea id="transcript" maxlength="30000" spellcheck="true" placeholder="Paste plain text, SRT, or VTT here…"></textarea>
-        <div class="input-footer">
-          <span id="charCount">0 / 30,000</span>
-          <div class="mode-control">
-            <label for="analysisMode">Analyzer</label>
-            <select id="analysisMode">
-              <option value="local">Local demo</option>
-              <option value="ai">GPT-5.6</option>
-            </select>
-            <button id="analyzeButton" class="primary-button">Analyze story →</button>
+          <div class="edit-zone-grid">
+            <aside class="edit-chat card">
+              <div class="edit-chat-tabs" role="tablist" aria-label="意见工作台侧栏">
+                <button class="active" type="button" role="tab" aria-selected="true" data-edit-chat-tab="conversation">对话</button>
+                <button type="button" role="tab" aria-selected="false" data-edit-chat-tab="history">修订记录 <b id="editRevisionCount">0</b></button>
+                <span id="editConfirmCount">0 条待整理</span>
+              </div>
+              <div id="editConversation" class="edit-conversation">
+                <div id="editSelectionBanner" class="edit-selection-banner hidden">
+                  <div class="edit-selection-banner-head"><strong id="editSelectionBannerTitle">已选择</strong><button id="editClearSelectionButton" type="button">清空</button></div>
+                  <small id="editSelectionBannerMeta">—</small>
+                </div>
+                <div class="edit-message system"><span class="edit-avatar">S</span><p>单击选择镜头、素材、花字或章节卡；按住 ⌘/Ctrl 点击可追加多选，Shift 点击可连续选择片段。生成汇总 Prompt 后，本轮意见会清空并归档到“修订记录”，不会直接修改素材或包装。</p></div>
+                <div id="editProposalCard" class="edit-proposal-card hidden"></div>
+              </div>
+              <div id="editRevisionPanel" class="edit-revision-panel hidden" aria-label="修订记录"></div>
+              <div id="editOpinionComposer" class="edit-opinion-composer">
+                <label class="field-label" for="editCommand">意见描述</label>
+                <textarea id="editCommand" class="edit-command" maxlength="2000" placeholder="例如：删除这个镜头，或把这个花字改得更克制。"></textarea>
+                <div class="edit-opinion-range" aria-label="意见时间范围">
+                  <label>开始<input id="editOpinionStart" type="text" value="00:00:00.000" inputmode="numeric" aria-label="意见开始时间"></label>
+                  <button id="editSetStartButton" type="button" title="使用当前播放时间">← 当前</button>
+                  <label>结束<input id="editOpinionEnd" type="text" value="00:00:00.000" inputmode="numeric" aria-label="意见结束时间"></label>
+                  <button id="editSetEndButton" type="button" title="使用当前播放时间">当前 →</button>
+                </div>
+                <div class="edit-command-footer"><span id="editSelectionHint">尚未选中对象</span><div class="edit-command-actions"><button id="editCancelOpinionButton" class="button secondary hidden" type="button">取消编辑</button><button id="editProposeButton" class="button primary" type="button">加入意见 +</button></div></div>
+              </div>
+            </aside>
+
+            <section class="edit-media card">
+              <div class="edit-panel-head"><div><p class="section-label">MEDIA BIN</p><h3>素材池</h3></div><span id="editAssetCount">0 个素材</span></div>
+              <div class="edit-bin-search"><span>⌕</span><input id="editAssetSearch" type="search" placeholder="搜索素材、对白或镜头" autocomplete="off"><span class="edit-bin-shortcut">⌘ K</span></div>
+              <div class="edit-bin-filters" role="toolbar" aria-label="素材筛选"><button type="button" data-edit-asset-filter="all">全部</button><button class="active" type="button" data-edit-asset-filter="used">当前入片</button><button type="button" data-edit-asset-filter="partial">部分使用</button><button type="button" data-edit-asset-filter="excluded">未入片</button></div>
+              <div id="editAssetPath" class="edit-asset-path"></div>
+              <div class="edit-media-tabs"><button class="active" data-edit-media-tab="assets">素材</button><button data-edit-media-tab="clips">当前镜头</button></div>
+              <div id="editAssetPanel" class="edit-asset-grid"></div>
+              <div id="editClipPanel" class="edit-clip-list hidden"></div>
+            </section>
+
+            <aside class="edit-inspector card">
+              <div class="edit-preview-head">
+                <div class="edit-preview-title"><p class="section-label">PREVIEW</p><h3>预览</h3><label for="editVersionSelect">A<select id="editVersionSelect" aria-label="A 审片版本"></select></label><label id="editCompareVersionLabel" class="hidden" for="editCompareVersionSelect">B<select id="editCompareVersionSelect" aria-label="B 对比版本"></select></label></div>
+                <div class="edit-preview-actions">
+                  <button id="editDraftCacheStatus" class="edit-draft-cache-status hidden" type="button" aria-live="polite" title="StoryCut 会在本机 SSD 生成浏览器专用播放代理">播放代理准备中</button>
+                  <button id="editCompareToggle" class="edit-compare-toggle" type="button">A/B 对比</button>
+                  <button id="editCacheButton" class="edit-cache-button" type="button" title="查看与清理 StoryCut 本地缓存">缓存</button>
+                  <div class="edit-preview-modes"><button class="active" type="button" data-edit-preview-mode="standard">审片版</button><button type="button" data-edit-preview-mode="draft">流畅版</button></div>
+                </div>
+              </div>
+              <div id="editCompareBar" class="edit-compare-bar hidden">
+                <div id="editCompareViews" class="edit-compare-views" role="group" aria-label="A/B 预览布局">
+                  <button type="button" data-edit-compare-view="a">只看 A</button>
+                  <button class="active" type="button" data-edit-compare-view="split">分屏</button>
+                  <button type="button" data-edit-compare-view="b">只看 B</button>
+                </div>
+                <span id="editCompareSummary">正在比较两个版本…</span>
+                <small>快捷键 \ 切换视图</small>
+              </div>
+              <div class="edit-preview-wrap">
+                <div id="editPreviewStage" class="edit-preview-stage">
+                  <div class="edit-preview-pane">
+                    <span id="editPreviewALabel" class="edit-preview-pane-label">A · 当前版本</span>
+                    <video id="editPreviewVideo" class="edit-preview-video" controls preload="metadata" aria-keyshortcuts="Space"></video>
+                    <div id="editPreviewPlaceholder" class="edit-preview-placeholder"><span>▶</span><p>项目中没有可用的审片视频</p></div>
+                  </div>
+                  <div id="editComparePane" class="edit-preview-pane edit-compare-pane hidden">
+                    <span id="editPreviewBLabel" class="edit-preview-pane-label">B · 对比版本</span>
+                    <video id="editCompareVideo" class="edit-preview-video" muted preload="metadata" aria-label="B 对比版本，跟随 A 同步播放"></video>
+                  </div>
+                </div>
+                <div class="edit-preview-time"><span id="editCompareSyncStatus" class="hidden">当前预览</span><strong id="editPreviewTime">00:00:00.000</strong></div>
+              </div>
+              <div id="editSelectionEmpty" class="edit-selection-empty">点击左侧素材、下方镜头、花字或章节卡，查看时间范围并加入针对性意见。</div>
+              <div id="editSelectionDetails" class="edit-selection-details hidden">
+                <strong id="editSelectionTitle">—</strong>
+                <p id="editSelectionPath">—</p>
+                <div class="edit-detail-grid"><span>对象<strong id="editSelectionType">—</strong></span><span>源入点<strong id="editSelectionIn">—</strong></span><span>源出点<strong id="editSelectionOut">—</strong></span><span>正片位置<strong id="editSelectionTimeline">—</strong></span><span>状态<strong id="editSelectionStatus">—</strong></span></div>
+                <div id="editSelectionReason" class="edit-selection-reason">—</div>
+                <div class="edit-inspector-actions"><button data-edit-action="remove" class="button secondary">意见模板：移除镜头</button><button data-edit-action="trim" class="button secondary">意见模板：收紧当前段</button></div>
+              </div>
+              <div class="edit-rule-note"><b>意见模式</b><span>本工作台只记录选中范围并生成意见 Prompt，不修改素材、EDL、字幕或已确认版本。</span></div>
+            </aside>
+
+            <section class="edit-timeline card">
+              <div class="edit-timeline-head">
+                <div class="edit-timeline-tools" role="toolbar" aria-label="时间线查看工具">
+                  <button type="button" aria-label="添加意见标记">＋</button>
+                  <button class="active" type="button" aria-label="选择镜头">↖</button>
+                  <button id="editTimelineFitButton" type="button" aria-label="时间线适配全片">↔</button>
+                  <button type="button" aria-label="上一步意见">↶</button>
+                  <button type="button" aria-label="下一步意见">↷</button>
+                </div>
+                <div class="edit-timeline-controls"><span>全片 <b id="editTimelineClipCount">0</b> 个镜头 · <b id="editTimelineDuration">00:00:00.000</b></span><small>←/→ 1 秒 · Shift 5 秒 · Space 播放</small><label>缩放 <input id="editTimelineZoom" type="range" min="1" max="8" step="1" value="1" aria-label="时间线缩放"></label></div>
+              </div>
+              <div id="editTimelineViewport" class="edit-timeline-viewport" tabindex="0" aria-label="时间线；左右方向键移动播放位置，空格播放或暂停">
+                <div id="editTimelineContent" class="edit-timeline-content">
+                  <div id="editTimelineRuler" class="edit-timeline-ruler"></div>
+                  <div id="editDiffLaneRow" class="edit-lane edit-diff-lane hidden"><strong><b>Δ</b><small>版本差异</small></strong><div id="editDiffLane" class="edit-track diff-track"></div></div>
+                  <div class="edit-lane edit-marker-lane"><strong><b>V3</b><small>花字</small></strong><div id="editGraphicsLane" class="edit-track marker-track graphics-track"></div></div>
+                  <div class="edit-lane edit-marker-lane"><strong><b>V2</b><small>章节卡</small></strong><div id="editChapterLane" class="edit-track marker-track chapter-track"></div></div>
+                  <div class="edit-lane"><strong><b>V1</b><small>主视频</small></strong><div id="editVideoLane" class="edit-track video-track"></div></div>
+                  <div class="edit-lane"><strong><b>A1</b><small>同期声</small></strong><div id="editAudioLane" class="edit-track audio-track"></div></div>
+                  <div class="edit-lane edit-marker-lane"><strong><b>A2</b><small>BGM</small></strong><div id="editBgmLane" class="edit-track marker-track bgm-track"></div></div>
+                  <div class="edit-lane edit-marker-lane"><strong><b>A3</b><small>音效</small></strong><div id="editSfxLane" class="edit-track marker-track sfx-track"></div></div>
+                </div>
+              </div>
+              <div id="editTimelineEmpty" class="edit-timeline-empty hidden">当前 EDL 没有可解析的镜头。你仍可以在对话中描述要插入的素材范围。</div>
+            </section>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div id="resultsPanel" class="results-panel panel hidden">
-        <div class="panel-head results-head">
-          <div><p class="step">02 / REVIEW</p><h2>Editorial decisions</h2></div>
-          <button id="exportButton" class="quiet-button">Export JSON ↓</button>
+      <section id="page-files" class="page">
+        <div id="filesNeedsProject" class="inline-empty">打开项目后，这里会自动整理 EDL、字幕、故事方案和审片文件。</div>
+        <div id="filesWorkspace" class="files-layout hidden">
+          <section class="file-browser card">
+            <div class="section-head"><div><p class="section-label">LOCAL ARTIFACTS</p><h3>项目文件</h3></div><span id="fileCountLabel">0 个</span></div>
+            <div id="fileFilters" class="file-filters">
+              <button class="active" data-kind="all">全部</button>
+              <button data-kind="story">故事</button>
+              <button data-kind="edl">EDL</button>
+              <button data-kind="transcript">字幕/转写</button>
+              <button data-kind="preview">视频</button>
+              <button data-kind="plan">包装方案</button>
+              <button data-kind="review">反馈</button>
+            </div>
+            <div id="artifactList" class="artifact-list"></div>
+          </section>
+          <section class="document-viewer card">
+            <div class="section-head"><div><p class="section-label">DOCUMENT PREVIEW</p><h3 id="documentTitle">选择一个文件</h3></div></div>
+            <pre id="documentContent">点击左侧的 Markdown、JSON、字幕或文本文件即可预览。</pre>
+          </section>
         </div>
-        <p id="summary" class="summary"></p>
-        <div id="stats" class="stats"></div>
-        <div class="filter-row" role="group" aria-label="Filter decisions">
-          <button class="filter active" data-filter="ALL">ALL</button>
-          <button class="filter keep" data-filter="KEEP">KEEP</button>
-          <button class="filter cut" data-filter="CUT">CUT</button>
-          <button class="filter move" data-filter="MOVE">MOVE</button>
-          <button class="filter broll" data-filter="B-ROLL">B-ROLL</button>
+      </section>
+
+      <section id="page-analyze" class="page">
+        <div class="analyze-intro">
+          <div><p class="kicker">原 StoryCut 功能</p><h2>从转录到可解释的剪辑建议</h2></div>
+          <p>保留原有的本地 MLX Whisper 和 KEEP / CUT / MOVE / B-ROLL 分析，作为项目工作台中的独立工具。</p>
         </div>
-        <div id="decisionList" class="decision-list"></div>
+
+        <section class="analysis-grid">
+          <div class="analysis-card">
+            <div class="section-head"><div><p class="section-label">LOCAL MEDIA</p><h3>转写本地媒体</h3></div><span class="local-chip">不上传</span></div>
+            <label id="dropzone" class="dropzone" for="mediaFile">
+              <input type="file" id="mediaFile" accept="video/*,audio/*,.mp4,.mov,.m4a,.wav,.mp3" hidden>
+              <strong>拖入 mp4 / mov / m4a / wav / mp3</strong>
+              <button type="button" id="pickFile" class="text-button">或选择文件</button>
+              <small id="dropzoneMeta">在 Apple Silicon 上使用本地 MLX Whisper。</small>
+            </label>
+            <div id="mediaProgress" class="media-progress hidden">
+              <div class="progress-track"><span id="progressBar"></span></div>
+              <p id="progressStage">等待开始。</p>
+            </div>
+          </div>
+
+          <div class="analysis-card">
+            <div class="section-head"><div><p class="section-label">TRANSCRIPT</p><h3>粘贴转录文本</h3></div><button id="demoButton" class="text-button">载入安全示例</button></div>
+            <textarea id="transcript" maxlength="30000" spellcheck="true" placeholder="粘贴普通文本、SRT 或 VTT……"></textarea>
+            <div class="analyze-actions">
+              <span id="charCount">0 / 30,000</span>
+              <label>分析器<select id="analysisMode"><option value="local">本地演示</option><option value="ai">GPT-5.6</option></select></label>
+              <button id="analyzeButton" class="button primary">分析故事 →</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="resultsPanel" class="analysis-card results-panel hidden">
+          <div class="section-head"><div><p class="section-label">EDITORIAL PROPOSALS</p><h3>剪辑建议</h3></div><button id="exportButton" class="button secondary">导出 JSON</button></div>
+          <p id="summary" class="summary"></p>
+          <div id="stats" class="stats"></div>
+          <div class="filter-row" role="group" aria-label="筛选建议">
+            <button class="filter active" data-filter="ALL">全部</button>
+            <button class="filter keep" data-filter="KEEP">KEEP</button>
+            <button class="filter cut" data-filter="CUT">CUT</button>
+            <button class="filter move" data-filter="MOVE">MOVE</button>
+            <button class="filter broll" data-filter="B-ROLL">B-ROLL</button>
+          </div>
+          <div id="decisionList" class="decision-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="projectDialog" class="project-dialog">
+    <form method="dialog">
+      <button class="dialog-close" aria-label="关闭">×</button>
+    </form>
+    <p class="section-label">OPEN LOCAL PROJECT</p>
+    <h2>打开视频工程</h2>
+    <p>输入包含 <code>edit/</code> 的项目目录；如果当前目录本身就是 <code>edit/</code> 也可以直接打开。</p>
+    <label class="field-label" for="projectPath">本地目录</label>
+    <input id="projectPath" class="text-input" placeholder="/path/to/video-project" autocomplete="off">
+    <p class="dialog-note">路径会缓存在当前浏览器中，方便下次继续；只发送给本机 StoryCut 服务，不会上传到网络。</p>
+    <button id="confirmOpenProject" class="button primary wide">扫描本地项目</button>
+    <section id="recentProjectsDialog" class="recent-projects-dialog hidden">
+      <div class="recent-projects-dialog-head">
+        <p class="section-label">RECENT PROJECTS</p>
+        <span>点击即可重新打开</span>
       </div>
+      <div id="recentProjectsDialogList" class="recent-project-list compact"></div>
     </section>
-  </main>
+  </dialog>
+
+  <dialog id="cacheDialog" class="project-dialog cache-dialog">
+    <form method="dialog"><button class="dialog-close" aria-label="关闭缓存面板">×</button></form>
+    <p class="section-label">LOCAL PERFORMANCE CACHE</p>
+    <h2>StoryCut 本地缓存</h2>
+    <p>播放代理、首帧缩略图和项目索引只保存在这台设备上。清理后不会影响源素材或剪辑工程，需要时会自动重建。</p>
+    <h3 class="cache-section-title">全部项目</h3>
+    <div id="cacheSummary" class="cache-summary" aria-live="polite">
+      <div class="cache-loading">正在统计缓存…</div>
+    </div>
+    <section id="cacheProjectSection" class="cache-project-section hidden">
+      <div class="cache-section-head"><h3 class="cache-section-title">当前项目</h3><strong id="cacheProjectTotal">0 B</strong></div>
+      <div id="cacheProjectSummary" class="cache-summary compact"></div>
+      <button type="button" class="button secondary wide" data-cache-clear="all" data-cache-scope="project">仅清理当前项目缓存</button>
+    </section>
+    <section class="cache-limit-section">
+      <div class="cache-section-head"><div><h3 class="cache-section-title">播放代理容量</h3><small id="cacheLimitHint">超出容量后自动按最久未使用顺序清理。</small></div><strong id="cacheLimitUsage">0 B / 20 GB</strong></div>
+      <div class="cache-usage-track"><span id="cacheUsageBar"></span></div>
+      <div class="cache-limit-controls"><label><input id="cacheLimitInput" type="number" min="1" max="200" step="1" value="20"> GB</label><button id="saveCacheLimitButton" type="button" class="button secondary">保存容量</button></div>
+    </section>
+    <div class="cache-actions">
+      <button type="button" class="button secondary" data-cache-clear="thumbnails" data-cache-scope="global">清理全部缩略图</button>
+      <button type="button" class="button secondary" data-cache-clear="media" data-cache-scope="global">清理全部播放代理</button>
+      <button type="button" class="button secondary" data-cache-clear="project-index" data-cache-scope="global">清理全部项目索引</button>
+      <button type="button" class="button danger" data-cache-clear="all" data-cache-scope="global">全部清理</button>
+    </div>
+    <div class="cache-location-row"><p id="cacheLocation" class="dialog-note">~/Library/Caches/StoryCut</p><button id="openCacheDirectoryButton" type="button" class="text-button">在 Finder 中打开</button></div>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/app.js"></script>

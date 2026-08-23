@@ -8,8 +8,10 @@ __pycache__/
 *.pyc
 coverage/
 outputs/
+downloads/
 uploads/
 private/
+design/
 *.mp4
 *.mov
 *.mkv

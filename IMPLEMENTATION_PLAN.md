@@ -1,9 +1,28 @@
-# StoryCut Local Media Pipeline · Implementation Plan v0.2
+# StoryCut Local Media Pipeline · Implementation Plan v0.4
 
-**Status:** Draft
+**Status:** Active roadmap — v0.2 baseline shipped; v0.4 review workspace stabilization in progress
 **Date:** 2026-07-19
 **Source requirements:** `REQUIREMENTS.md` (v0.2)
 **Focus:** P0 — transcription + timecode alignment end-to-end
+
+## 2026-08-13 continuation status
+
+The original P0 checklist below is retained as historical context and is shipped. The current execution order is:
+
+- [x] First-frame thumbnails stored in the local StoryCut cache and loaded lazily.
+- [x] H.264/AAC playback proxies for both Edit workspace panes and both preview qualities, with bounded SSD cache and automatic source fallback.
+- [x] Playback proxy support for Video Review as well as Edit workspace.
+- [x] Browser-local pending opinions, multi-selection, edit/delete, prompt generation, automatic archival, and emptying the pending list.
+- [x] Archived revisions can be restored into the pending list for another iteration.
+- [x] Deterministic project session IDs and persistent-index restoration across server restarts.
+- [x] Hidden/background pages unload active media and suspend proxy polling; returning restores the current preview position.
+- [x] Large media bins render in batches; review/file rows use browser layout containment; timeline audio uses one lightweight SVG.
+- [x] A/B preview with master/follower playback, A/split/B layouts, `\` view switching, buffering/end-state feedback, and invalid-proxy fallback.
+- [x] Semantic A/B comparison for clips and packaging markers, exposed as a summary plus clickable delta lane (added/removed/trimmed/extended/moved).
+- [x] Cache ownership manifests and a project-scoped cache view/clear action that preserves artifacts shared by other projects.
+- [x] Cache capacity controls (1–200 GB), global/project statistics, bounded filesystem inspection, and Finder access to the fixed StoryCut cache root.
+- [ ] Add automated browser smoke coverage to CI once the browser runtime is available in CI.
+- [ ] P1 diarization and SRT/CMX3600 export remain separate product milestones and are not silently enabled.
 
 ## 0. Decision summary (recap)
 
